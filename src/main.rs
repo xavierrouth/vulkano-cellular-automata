@@ -2,9 +2,10 @@ pub mod shaders;
 
 extern crate nalgebra_glm as glm;
 
+use std::thread::sleep;
 use std::{env, future};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 
 use image::{ImageBuffer, Rgba};
 use rand::Rng;
@@ -93,8 +94,8 @@ fn main() {
 
     println!("needed alignment {align}");
 
-    let mut cells_x: u32 = 32;
-    let mut cells_y: u32 = 32;
+    let mut cells_x: u32 = 2048;
+    let mut cells_y: u32 = 1024;
 
     let size = cells_x * cells_y * 2;
     /* Get our double buffers for our CA. */
@@ -299,8 +300,11 @@ fn main() {
                         BlitImageInfo::images(out_image.clone(), swapchain_images[image_index as usize].clone())
                     )
                     .unwrap();
+            
+                let command_buffer = builder.build().unwrap();
                 
-
+                /* Who cares about previous_frame_end? */
+                /* 
                 let future = previous_frame_end
                     .take()
                     .unwrap()
@@ -311,14 +315,23 @@ fn main() {
                         queue.clone(), 
                         SwapchainPresentInfo::swapchain_image_index(swapchain.clone(), image_index),
                     )
+                    .then_signal_fence_and_flush(); */
+                
+                let future = acquire_future
+                    .then_execute(queue.clone(), command_buffer)
+                    .unwrap()
+                    .then_swapchain_present(
+                        queue.clone(), 
+                        SwapchainPresentInfo::swapchain_image_index(swapchain.clone(), image_index),
+                    )
                     .then_signal_fence_and_flush();
                 
-
-                
-
+                /*  */
+                sleep(Duration::from_millis(10));
                 match future.map_err(Validated::unwrap) {
-                    Ok(future) => {
-                        previous_frame_end = Some(future.boxed());
+                    Ok(mut future) => {
+                        //future.cleanup_finished();
+                        future.flush(); //previous_frame_end = Some(future.boxed());
                     }
                     Err(VulkanError::OutOfDate) => {
                         recreate_swapchain = true;
@@ -331,7 +344,6 @@ fn main() {
                 }
 
                 compute_buffers.swap(0, 1);
-
                 
             }
             _ => (),
