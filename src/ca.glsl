@@ -6,17 +6,19 @@ layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
 
-layout(set = 0, binding = 1) readonly buffer LifeInBuffer {
+layout(set = 0, binding = 1) buffer LifeInBuffer {
     uint life_in[];
 };
 
-layout(set = 0, binding = 2) writeonly buffer LifeOutBuffer {
+layout(set = 0, binding = 2) buffer LifeOutBuffer {
     uint life_out[];
 };
 
 
-uint get_idx(ivec2 pos) {
+ivec2 wrap_position(ivec2 pos) {
     ivec2 wrapped = pos;
+
+    atomicOr(life_out[0], 0xFF);
 
     if (pos.x >= CELLS_X) { // 0 indexed.
         wrapped.x = 0;
@@ -31,60 +33,93 @@ uint get_idx(ivec2 pos) {
         wrapped.y = CELLS_Y - 1;
     }
 
-    return (wrapped.y * CELLS_X) + wrapped.x;
+    return wrapped;
+}
+
+uint get_cell(ivec2 pos) {
+    ivec2 wrapped = wrap_position(pos);
+
+    uint byte_idx = (wrapped.y * CELLS_X) + wrapped.x;
+    uint word_idx = byte_idx / 4;
+    uint offset_in_word = (byte_idx % 4) * 8; // Bit offset
+
+    return (life_in[word_idx] >> offset_in_word) & 0xFF;
+}
+
+void set_cell(ivec2 pos, uint cell_value) {
+    ivec2 wrapped = wrap_position(pos);
+
+    uint byte_idx = (wrapped.y * CELLS_X) + wrapped.x;
+    uint word_idx = byte_idx / 4;
+    uint offset_in_word = (byte_idx % 4) * 8; // Bit offset
+     
+    if (cell_value == 1) {
+        atomicOr(life_out[word_idx], (0x00000001 << offset_in_word));
+    }
+    else {
+        uint mask = 0x01 << offset_in_word;
+        mask = ~mask;
+        atomicAnd(life_out[word_idx], mask); // Just turn off a bit.
+    }
+    
 }
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy); // 0 Indexed
 
-    uint idx = get_idx(pos);
-    uint out_state = 0;
-
     // Game Of Life Rules:
     uint neighbors = 0;
 
-    neighbors += life_in[get_idx(pos + ivec2(-1, -1))];
+    neighbors += get_cell(pos + ivec2(-1, -1));
 
-    neighbors += life_in[get_idx(pos + ivec2(-1, 0))];
+    neighbors += get_cell(pos + ivec2(-1, 0));
 
-    neighbors += life_in[get_idx(pos + ivec2(-1, 1))];
+    neighbors += get_cell(pos + ivec2(-1, 1));
 
-    neighbors += life_in[get_idx(pos + ivec2(0, -1))];
+    neighbors += get_cell(pos + ivec2(0, -1));
 
-    neighbors += life_in[get_idx(pos + ivec2(0, 1))];
+    neighbors += get_cell(pos + ivec2(0, 1));
 
-    neighbors += life_in[get_idx(pos + ivec2(1, -1))];
+    neighbors += get_cell(pos + ivec2(1, -1));
 
-    neighbors += life_in[get_idx(pos + ivec2(1, 0))];
+    neighbors += get_cell(pos + ivec2(1, 0));
 
-    neighbors += life_in[get_idx(pos + ivec2(1, 1))];
+    neighbors += get_cell(pos + ivec2(1, 1));
 
     // Default
-    life_out[idx] = life_in[idx];
-    uint x = life_in[idx];
+    uint current_state = get_cell(pos); 
+    uint next_state = current_state;
 
-    if (life_in[idx] == 1) {
+    if (current_state == 1) {
         if (neighbors < 2) {
-            x = 0;
-            life_out[idx] = 0;
+            next_state = 0;
         }
         if (neighbors > 3) {
-            x = 0;
-            life_out[idx] = 0;
+            next_state = 0;
         }
     }
-
-    else if (life_in[idx] == 0) {
+    else if (current_state == 0) {
         if (neighbors == 3) {
-            life_out[idx] = 1;
-            x = 1;
+            next_state = 1;
+        }
+        else {
+            next_state = 0;
         }
     }
 
+    /* 
+    if (pos.y % 2 == 1) {
+        set_cell(pos, 1); 
+    }
+    else {
+        set_cell(pos, 0); 
+    } */
+    set_cell(pos, next_state);
+    
 
     vec3 cvec;
 
-    if (x == 0) {
+    if (current_state == 0) {
         cvec = vec3(0.0, 0.0, 0.0);
     }
     else {

@@ -94,14 +94,14 @@ fn main() {
 
     println!("needed alignment {align}");
 
-    let mut cells_x: u32 = 2048;
-    let mut cells_y: u32 = 2048;
+    let mut cells_x: u32 = 16384;
+    let mut cells_y: u32 = 16384;
 
-    let size = cells_x * cells_y * 2;
+    let size = cells_x * cells_y;
     /* Get our double buffers for our CA. */
 
     /* 10 by 10 */
-    let buffer = Buffer::new_slice::<u32>(
+    let buffer1 = Buffer::new_slice::<u8>(
         memory_allocator.clone(),
         BufferCreateInfo {
             usage: 
@@ -119,8 +119,26 @@ fn main() {
         //DeviceLayout::from_size_alignment(size.into(), align).unwrap(),
     ).unwrap();
 
-    let (a, b) = buffer.split_at(((size) / 2).into());
-    let mut compute_buffers = [a, b];
+    /* 10 by 10 */
+    let buffer2 = Buffer::new_slice::<u8>(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: 
+                BufferUsage::TRANSFER_SRC |
+                BufferUsage::TRANSFER_DST | 
+                BufferUsage::STORAGE_BUFFER,
+            
+            ..Default::default()
+        },
+        AllocationCreateInfo { 
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+            ..Default::default() 
+        },
+        (size) as DeviceSize // TODO: Why don't we need alignment here? 
+        //DeviceLayout::from_size_alignment(size.into(), align).unwrap(),
+    ).unwrap();
+
+    let mut compute_buffers = [buffer1, buffer2];
 
     /* This seems correct, I wonder  */
     println!("{}, {}", compute_buffers[0].size(), compute_buffers[1].size());
@@ -292,7 +310,7 @@ fn main() {
                         set
                     )
                     .unwrap()
-                    .dispatch([cells_x / 16, cells_y / 16, 1]) /* 16 * 16 * 1 */
+                    .dispatch([cells_x / (16), cells_y / (16), 1]) /* 16 * 16 * 1 */
                     .unwrap()
                     /* This seems like it should NOT be part of the same pipeline, 
                     once we decouple computation and display we can think about it more. */
@@ -302,7 +320,8 @@ fn main() {
                     .unwrap();
             
                 let command_buffer = builder.build().unwrap();
-                
+                    
+                //sleep(Duration::from_secs(1));
                 /* Who cares about previous_frame_end? */
                 /* 
                 let future = previous_frame_end
@@ -352,7 +371,7 @@ fn main() {
 
 }
 
-fn rand_grid(memory_allocator: Arc<StandardMemoryAllocator>, size: [u32; 2]) -> Subbuffer<[u32]> {
+fn preset_grid(memory_allocator: Arc<StandardMemoryAllocator>, size: [u32; 2]) -> Subbuffer<[u8]> {
     Buffer::from_iter(
         memory_allocator,
         BufferCreateInfo {
@@ -364,7 +383,26 @@ fn rand_grid(memory_allocator: Arc<StandardMemoryAllocator>, size: [u32; 2]) -> 
                 | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
             ..Default::default()
         },
-        (0..(size[0] * size[1])).map(|_| rand::thread_rng().gen_range(0u32..=1)),
+        (0..(size[0] * size[1])).map(|idx| if idx % 2 == 0 { 1 } else {0}
+
+        ),
+    )
+    .unwrap()
+}
+
+fn rand_grid(memory_allocator: Arc<StandardMemoryAllocator>, size: [u32; 2]) -> Subbuffer<[u8]> {
+    Buffer::from_iter(
+        memory_allocator,
+        BufferCreateInfo {
+            usage: BufferUsage::STORAGE_BUFFER | BufferUsage::TRANSFER_SRC,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+            ..Default::default()
+        },
+        (0..(size[0] * size[1])).map(|_| rand::thread_rng().gen_range(0u8..=1)),
     )
     .unwrap()
 }
