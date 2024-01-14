@@ -95,7 +95,7 @@ fn main() {
     println!("needed alignment {align}");
 
     let mut cells_x: u32 = 2048;
-    let mut cells_y: u32 = 1024;
+    let mut cells_y: u32 = 2048;
 
     let size = cells_x * cells_y * 2;
     /* Get our double buffers for our CA. */
@@ -327,7 +327,7 @@ fn main() {
                     .then_signal_fence_and_flush();
                 
                 /*  */
-                sleep(Duration::from_millis(10));
+                //sleep(Duration::from_millis(10));
                 match future.map_err(Validated::unwrap) {
                     Ok(mut future) => {
                         //future.cleanup_finished();
@@ -388,7 +388,7 @@ fn create_swapchain(device: Arc<Device>, surface: &Arc<Surface>, window: &Arc<Wi
             surface.clone(),
             SwapchainCreateInfo {
                 min_image_count: surface_capabilities.min_image_count.max(2),
-                present_mode: PresentMode::Fifo,
+                present_mode: PresentMode::Immediate,
 
                 image_format: image_format,
                 image_extent: window.inner_size().into(),
