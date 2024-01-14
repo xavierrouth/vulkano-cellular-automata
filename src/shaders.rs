@@ -6,7 +6,7 @@ pub(crate) mod cs {
     vulkano_shaders::shader! {
         ty: "compute",
         path: "src/ca.glsl",
-        define: [("CELLS_X", "16384"), ("CELLS_Y", "16384")]
+        define: [("CELLS_X", "4096"), ("CELLS_Y", "4096")]
         
     }
     

@@ -94,8 +94,8 @@ fn main() {
 
     println!("needed alignment {align}");
 
-    let mut cells_x: u32 = 16384;
-    let mut cells_y: u32 = 16384;
+    let mut cells_x: u32 = 4096;
+    let mut cells_y: u32 = 4096;
 
     let size = cells_x * cells_y;
     /* Get our double buffers for our CA. */
@@ -310,7 +310,7 @@ fn main() {
                         set
                     )
                     .unwrap()
-                    .dispatch([cells_x / (16), cells_y / (16), 1]) /* 16 * 16 * 1 */
+                    .dispatch([cells_x / (32), cells_y / (32), 1]) /* 16 * 16 * 1 */
                     .unwrap()
                     /* This seems like it should NOT be part of the same pipeline, 
                     once we decouple computation and display we can think about it more. */
