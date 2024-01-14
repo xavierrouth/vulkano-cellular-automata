@@ -97,11 +97,10 @@ fn main() {
     let mut cells_x: u32 = 4096 ;
     let mut cells_y: u32 = 4096 ;
 
-    let size = cells_x * cells_y * 2;
+    let size = cells_x * cells_y;
     /* Get our double buffers for our CA. */
 
-    /* 10 by 10 */
-    let buffer = Buffer::new_slice::<u32>(
+    let buffer1 = Buffer::new_slice::<u32>(
         memory_allocator.clone(),
         BufferCreateInfo {
             usage: 
@@ -119,8 +118,26 @@ fn main() {
         //DeviceLayout::from_size_alignment(size.into(), align).unwrap(),
     ).unwrap();
 
-    let (a, b) = buffer.split_at(((size) / 2).into());
-    let mut compute_buffers = [a, b];
+    /* 10 by 10 */
+    let buffer2 = Buffer::new_slice::<u32>(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: 
+                BufferUsage::TRANSFER_SRC |
+                BufferUsage::TRANSFER_DST | 
+                BufferUsage::STORAGE_BUFFER,
+            
+            ..Default::default()
+        },
+        AllocationCreateInfo { 
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+            ..Default::default() 
+        },
+        (size) as DeviceSize // TODO: Why don't we need alignment here? 
+        //DeviceLayout::from_size_alignment(size.into(), align).unwrap(),
+    ).unwrap();
+
+    let mut compute_buffers = [buffer1, buffer2];
 
     /* This seems correct, I wonder  */
     println!("{}, {}", compute_buffers[0].size(), compute_buffers[1].size());
@@ -292,7 +309,7 @@ fn main() {
                         set
                     )
                     .unwrap()
-                    .dispatch([cells_x / 16, cells_y / 16, 1]) /* 16 * 16 * 1 */
+                    .dispatch([cells_x / 32, cells_y / 32, 1]) /* 16 * 16 * 1 */
                     .unwrap()
                     /* This seems like it should NOT be part of the same pipeline, 
                     once we decouple computation and display we can think about it more. */
