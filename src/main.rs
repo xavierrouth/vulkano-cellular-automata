@@ -94,8 +94,8 @@ fn main() {
 
     println!("needed alignment {align}");
 
-    let mut cells_x: u32 = 2048;
-    let mut cells_y: u32 = 2048;
+    let mut cells_x: u32 = 4096 ;
+    let mut cells_y: u32 = 4096 ;
 
     let size = cells_x * cells_y * 2;
     /* Get our double buffers for our CA. */
